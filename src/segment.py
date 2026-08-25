@@ -19,6 +19,16 @@ RANDOM_STATE = 42
 CORE_FEATURES = ["recency_days", "frequency_orders", "monetary_value"]
 K_CANDIDATES = range(2, 9)
 MIN_CLUSTER_SHARE = 0.05
+PERSONA_LADDER = [
+    "Champions",
+    "Loyal High Value",
+    "Promising",
+    "Steady",
+    "Occasional",
+    "At Risk",
+    "Dormant",
+    "Low Engagement",
+]
 
 
 def make_preprocessor() -> Pipeline:
@@ -70,6 +80,13 @@ def stability_audit(X_scaled: np.ndarray, reference_labels: np.ndarray, k: int) 
 
 
 def assign_personas(profile: pd.DataFrame) -> pd.DataFrame:
+    """Attach descriptive business labels after clustering without affecting the model.
+
+    Clusters are ordered from stronger to weaker RFM behavior using percentile ranks.
+    Persona names are then sampled across the full high-to-low ladder, so even a
+    two-cluster solution receives one high-value and one low-engagement label rather
+    than two positive-sounding names. These labels are descriptive, not ground truth.
+    """
     out = profile.copy()
     recency_rank = out["recency_days_median"].rank(pct=True, ascending=False)
     freq_rank = out["frequency_orders_median"].rank(pct=True, ascending=True)
@@ -77,11 +94,13 @@ def assign_personas(profile: pd.DataFrame) -> pd.DataFrame:
     out["value_score"] = recency_rank + freq_rank + money_rank
 
     ordered = out.sort_values("value_score", ascending=False).index.tolist()
-    names = [
-        "Champions", "Loyal High Value", "Promising", "Steady",
-        "Occasional", "At Risk", "Dormant", "Low Engagement",
-    ]
-    persona_map = {idx: names[min(rank, len(names) - 1)] for rank, idx in enumerate(ordered)}
+    ladder_positions = np.rint(
+        np.linspace(0, len(PERSONA_LADDER) - 1, num=len(ordered))
+    ).astype(int)
+    persona_map = {
+        idx: PERSONA_LADDER[position]
+        for idx, position in zip(ordered, ladder_positions, strict=True)
+    }
     out["persona"] = out.index.map(persona_map)
     return out.drop(columns=["value_score"])
 
@@ -164,6 +183,7 @@ def main() -> None:
             "role": "diagnostic visualization only; clustering uses scaled RFM space",
             "explained_variance_ratio": [float(x) for x in pca.explained_variance_ratio_],
         },
+        "persona_policy": "post-hoc descriptive labels ordered by RFM profile and spread across a high-to-low engagement ladder; not ground-truth classes",
         "claim_boundary": "descriptive historical behavioral segmentation; clusters are not causal or universal customer types",
     }
     (ART / "metrics.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
