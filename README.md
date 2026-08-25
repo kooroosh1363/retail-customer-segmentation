@@ -19,6 +19,8 @@ Portfolio-grade unsupervised learning project that converts public transaction-l
 
 The project uses the UCI **Online Retail** dataset: 541,909 transaction rows from a UK-based non-store retailer between December 2010 and December 2011.
 
+The validated cleaning run removes 135,080 rows without customer IDs, 8,905 cancelled rows, 40 non-positive rows, and 5,192 exact duplicates. The resulting customer-level feature table contains 4,338 identified customers from 392,692 valid transaction rows.
+
 See `DATA_SOURCE.md`, `DATA_DICTIONARY.md`, and `METHOD_CARD.md` for provenance, feature definitions, assumptions, and claim boundaries.
 
 ## Architecture
@@ -54,7 +56,13 @@ The clustering core uses `recency_days`, `frequency_orders`, and `monetary_value
 
 KMeans candidates from `k=2` through `k=8` are fitted with deterministic seeds. The primary quality metric is silhouette score. A candidate must also keep every cluster above a minimum share of the customer base so a tiny outlier group cannot win purely on geometric separation.
 
-The selected solution is then audited for stability across ten repeated 80% customer subsamples. Each subsample is reclustered and compared with the full-data labels on those same customers using Adjusted Rand Index, which is invariant to arbitrary cluster-label numbering.
+The CI-validated run selects **k=2** with a silhouette score of about **0.433**. The smaller cluster still contains about **38.5%** of customers, so the result is not driven by a tiny outlier group. The project intentionally does not force a larger number of segments simply to create a more elaborate business story.
+
+The selected solution is then audited for stability across ten repeated 80% customer subsamples. Each subsample is reclustered and compared with the full-data labels on those same customers using Adjusted Rand Index, which is invariant to arbitrary cluster-label numbering. The validated stability run achieves mean ARI of about **0.993** and minimum ARI of about **0.982**, indicating very high robustness to these sampling perturbations. This is a sampling-stability result, not evidence of temporal stability.
+
+## PCA diagnostic
+
+PCA is used only after clustering for visualization/diagnosis. The first two components explain about **93.9%** of the standardized RFM variance combined, while KMeans itself remains fitted in the full three-dimensional RFM feature space.
 
 ## Persona policy
 
