@@ -7,12 +7,12 @@ Portfolio-grade unsupervised learning project that converts public transaction-l
 - reproducible acquisition from the official UCI Machine Learning Repository
 - transaction cleaning with explicit cancellation, missing-customer, non-positive value and duplicate policies
 - customer-level RFM feature engineering
-- robust log transforms and StandardScaler preprocessing
+- log1p transforms and StandardScaler preprocessing
 - KMeans model comparison across multiple cluster counts
 - silhouette score plus cluster-size safeguards for model selection
-- bootstrap/subsample stability analysis with Adjusted Rand Index
+- repeated-subsample stability analysis with Adjusted Rand Index
 - PCA as a diagnostic/visualization artifact rather than a clustering requirement
-- business-oriented segment profiling and deterministic persona naming
+- business-oriented segment profiling with post-hoc descriptive persona labels
 - pytest and GitHub Actions CI
 
 ## Data
@@ -33,7 +33,7 @@ official UCI Online Retail ZIP
     -> StandardScaler
     -> KMeans candidates (k = 2..8)
     -> choose by silhouette with minimum-cluster-size guard
-    -> stability audit with subsampling + ARI
+    -> stability audit with repeated 80% subsamples + ARI
     -> PCA diagnostic coordinates
     -> customer assignments + cluster profiles + personas
     -> JSON/CSV artifacts
@@ -54,7 +54,11 @@ The clustering core uses `recency_days`, `frequency_orders`, and `monetary_value
 
 KMeans candidates from `k=2` through `k=8` are fitted with deterministic seeds. The primary quality metric is silhouette score. A candidate must also keep every cluster above a minimum share of the customer base so a tiny outlier group cannot win purely on geometric separation.
 
-The selected solution is then audited for stability across repeated 80% subsamples. Labels are compared with the full-data solution using Adjusted Rand Index, which is invariant to arbitrary cluster-label numbering.
+The selected solution is then audited for stability across ten repeated 80% customer subsamples. Each subsample is reclustered and compared with the full-data labels on those same customers using Adjusted Rand Index, which is invariant to arbitrary cluster-label numbering.
+
+## Persona policy
+
+Persona names are added only after clustering. Cluster-level median recency, frequency, and monetary behavior is ranked from stronger to weaker, then descriptive names are spread across a high-to-low engagement ladder. These names are interpretation aids rather than learned classes or ground-truth customer types, and they never affect model fitting or cluster selection.
 
 ## Claim boundary
 
